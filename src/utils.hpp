@@ -4,20 +4,20 @@
 #include <inttypes.h>
 
 template <typename T>
-double kmHToHz(T speed) {
+uint32_t kmHToHz(T speed) {
   // 200 = 50hz
   
-  double speedHzOutput = static_cast<double>(speed) / 4.0;
+  double speedHzOutput = static_cast<double>(speed) / 1.44;
   ESP_LOGI("Speed", "%lf hz", speedHzOutput);
-  return speedHzOutput;
+  return static_cast<uint32_t>(speedHzOutput);
 }
 
 template <typename T>
-double RPMToHz(T rpm) {
+uint32_t RPMToHz(T rpm) {
   // 1000 = 30.9hz
   double hz = static_cast<double>(rpm) / 30;
   ESP_LOGI("RPM", "%lf hz", hz);
-  return hz;
+  return static_cast<uint32_t>(hz);
 }
 
 struct sTelemetryData* parsePacket(uint8_t* packetBuffer, size_t length) {

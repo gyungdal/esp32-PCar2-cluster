@@ -3,35 +3,71 @@
 #include <WiFi.h>
 #include <driver/ledc.h>
 
+#include "./config.hpp"
 #include "./projectcars/udp2_5.hpp"
 #include "./utils.hpp"
-
 
 const gpio_num_t SPEED_METER_PIN = GPIO_NUM_26;
 const gpio_num_t RPM_METER_PIN = GPIO_NUM_27;
 const ledc_channel_t SPEED_METER_PWM_CHANNEL = LEDC_CHANNEL_0;
 const ledc_channel_t RPM_METER_PWM_CHANNEL = LEDC_CHANNEL_2;
 const uint8_t PWM_RESOLUTION = 8;
-const double PWM_DEFAULT_FREQ = 10E8;
+const uint32_t PWM_DEFAULT_FREQ = 60;
 
+ledc_channel_config_t SPEED_METER_LEDC_CONFIG = {
+    .gpio_num = SPEED_METER_PIN,
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .channel = SPEED_METER_PWM_CHANNEL,
+    .intr_type = LEDC_INTR_DISABLE,
+    .timer_sel = LEDC_TIMER_0,
+    .duty = PWM_DEFAULT_FREQ,
+    .hpoint = 0,
+};
+
+ledc_channel_config_t RPM_METER_LEDC_CONFIG = {
+    .gpio_num = RPM_METER_PIN,
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .channel = RPM_METER_PWM_CHANNEL,
+    .intr_type = LEDC_INTR_DISABLE,
+    .timer_sel = LEDC_TIMER_1,
+    .duty = PWM_DEFAULT_FREQ,
+    .hpoint = 0,
+};
 AsyncUDP udp;
 
 void setup() {
+  
+  ledc_timer_config_t ledc_timer;
+  ledc_timer.speed_mode = LEDC_HIGH_SPEED_MODE;
+  ledc_timer.duty_resolution = LEDC_TIMER_8_BIT;
+  ledc_timer.freq_hz = PWM_DEFAULT_FREQ;
+  ledc_timer.timer_num = LEDC_TIMER_0;
+  ledc_timer_config(&ledc_timer);
+  ledc_timer.timer_num = LEDC_TIMER_1;
+  ledc_timer_config(&ledc_timer);
+  ledc_channel_config(&SPEED_METER_LEDC_CONFIG);
+  ledc_channel_config(&RPM_METER_LEDC_CONFIG);
+
   Serial.begin(115200);
+
+  
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
     ESP_LOGE("WiFi", "Connect Failed");
     ESP.restart();
   }
-  //ledcSetup(SPEED_METER_PWM_CHANNEL, PWM_DEFAULT_FREQ, PWM_RESOLUTION);
-  //ledcSetup(RPM_METER_PWM_CHANNEL, PWM_DEFAULT_FREQ, PWM_RESOLUTION);
-  ledcAttachPin(SPEED_METER_PIN, SPEED_METER_PWM_CHANNEL);
-  ledcAttachPin(RPM_METER_PIN, RPM_METER_PWM_CHANNEL);
-  ledcSetup(SPEED_METER_PWM_CHANNEL, kmHToHz<float>(100), PWM_RESOLUTION);
-  ledcSetup(RPM_METER_PWM_CHANNEL, RPMToHz<unsigned short>(4000), PWM_RESOLUTION);
-  ledcWrite(SPEED_METER_PWM_CHANNEL, 128);
-  ledcWrite(RPM_METER_PWM_CHANNEL, 128);
+  ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_0, kmHToHz<float>(200));
+  ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_1, RPMToHz<float>(8000));
+  // ledcSetup(SPEED_METER_PWM_CHANNEL, PWM_DEFAULT_FREQ, PWM_RESOLUTION);
+  // ledcSetup(RPM_METER_PWM_CHANNEL, PWM_DEFAULT_FREQ, PWM_RESOLUTION);
+  //ledcAttachPin(SPEED_METER_PIN, SPEED_METER_PWM_CHANNEL);
+  //ledcAttachPin(RPM_METER_PIN, RPM_METER_PWM_CHANNEL);
+  //ledcSetup(SPEED_METER_PWM_CHANNEL, kmHToHz<float>(100), PWM_RESOLUTION);
+  //ledcSetup(RPM_METER_PWM_CHANNEL, RPMToHz<unsigned short>(4000),
+  //          PWM_RESOLUTION);
+  //ledcWrite(SPEED_METER_PWM_CHANNEL, 128);
+  //ledcWrite(RPM_METER_PWM_CHANNEL, 128);
   if (udp.listen(SMS_UDP_PORT)) {
     ESP_LOGI("UDP", "UDP Listening on IP: %s",
              WiFi.localIP().toString().c_str());
@@ -47,10 +83,6 @@ void setup() {
       ESP_LOGD("UDP", "Len : %d", static_cast<int32_t>(packet.length()));
       auto temp = parsePacket(packet.data(), packet.length());
       if (temp != nullptr) {
-        ledcSetup(SPEED_METER_PWM_CHANNEL, kmHToHz<float>(temp->sSpeed), PWM_RESOLUTION);
-        ledcSetup(RPM_METER_PWM_CHANNEL, RPMToHz<unsigned short>(temp->sRpm), PWM_RESOLUTION);
-        ledcWrite(SPEED_METER_PWM_CHANNEL, 128);
-        ledcWrite(RPM_METER_PWM_CHANNEL, 128);
         delete temp;
       }
     });
