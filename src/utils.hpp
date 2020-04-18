@@ -6,18 +6,36 @@
 template <typename T>
 double kmHToHz(T speed) {
   // 200 = 50hz
-  if (speed <= 60) {
-    speed = 60;
-  }
-  speed -= 60;
-  int64_t speedHzOutput = map(static_cast<int64_t>(speed), 0, 180, 0, 125) + 40;
+  
+  double speedHzOutput = static_cast<double>(speed) / 4.0;
+  ESP_LOGI("Speed", "%lf hz", speedHzOutput);
   return speedHzOutput;
 }
 
 template <typename T>
 double RPMToHz(T rpm) {
   // 1000 = 30.9hz
-  return static_cast<double>(rpm) / 30;
+  double hz = static_cast<double>(rpm) / 30;
+  ESP_LOGI("RPM", "%lf hz", hz);
+  return hz;
 }
 
+struct sTelemetryData* parsePacket(uint8_t* packetBuffer, size_t length) {
+  PacketBase packetHeader;
+  
+  if (length > 0) {
+    memcpy(&packetHeader, packetBuffer, sizeof(PacketBase));
+    switch (packetHeader.mPacketType) {
+      case eCarPhysics: {
+        auto data = new struct sTelemetryData;
+        memcpy(data, packetBuffer, sizeof(struct sTelemetryData));
+        ESP_LOGD("Debug", "input eCar");
+        return data;
+      }
+      default:
+        break;
+    }
+  }
+  return nullptr;
+}
 #endif
