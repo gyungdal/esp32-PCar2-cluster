@@ -2,11 +2,22 @@
 #include <AsyncUDP.h>
 #include <WiFi.h>
 #include <driver/ledc.h>
+#include <ArduinoJson.h>
+#include <FS.h>
+#include <HTTPClient.h>
+#include <SPIFFS.h>
+#include <WiFi.h>
+#include <WiFiManager.h>
+#include <WiFiUdp.h>
+#include <esp_wifi.h>
+#include <string>
+#include "esp_bt_device.h"
 
 #include "./config.hpp"
 #include "./projectcars/udp2_5.hpp"
 #include "./utils.hpp"
 
+const uint8_t JSON_DEFAULT_SIZE = UINT8_MAX;
 const gpio_num_t SPEED_METER_PIN = GPIO_NUM_26;
 const gpio_num_t RPM_METER_PIN = GPIO_NUM_27;
 const ledc_channel_t SPEED_METER_PWM_CHANNEL = LEDC_CHANNEL_0;
