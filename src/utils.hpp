@@ -6,8 +6,11 @@
 template <typename T>
 uint32_t kmHToHz(T speed) {
   // 200 = 50hz
-  
-  double speedHzOutput = static_cast<double>(speed) / 1.44;
+  auto test = static_cast<double>(speed);
+  if(test > 240){
+    test = 240;
+  }
+  double speedHzOutput = test / 1.44;
   ESP_LOGI("Speed", "%lf hz", speedHzOutput);
   return static_cast<uint32_t>(speedHzOutput);
 }
@@ -15,7 +18,11 @@ uint32_t kmHToHz(T speed) {
 template <typename T>
 uint32_t RPMToHz(T rpm) {
   // 1000 = 30.9hz
-  double hz = static_cast<double>(rpm) / 30;
+  auto test = static_cast<double>(rpm);
+  if(test > 8000){
+    test = 8000;
+  }
+  double hz = test / 30;
   ESP_LOGI("RPM", "%lf hz", hz);
   return static_cast<uint32_t>(hz);
 }
