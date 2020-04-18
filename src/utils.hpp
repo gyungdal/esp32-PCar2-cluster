@@ -10,7 +10,7 @@ uint32_t kmHToHz(T speed) {
   if(test > 240){
     test = 240;
   }
-  double speedHzOutput = test / 1.44;
+  double speedHzOutput = test * 2.5;
   ESP_LOGI("Speed", "%lf hz", speedHzOutput);
   return static_cast<uint32_t>(speedHzOutput);
 }
@@ -25,6 +25,35 @@ uint32_t RPMToHz(T rpm) {
   double hz = test / 30;
   ESP_LOGI("RPM", "%lf hz", hz);
   return static_cast<uint32_t>(hz);
+}
+
+
+String readSet() {
+  File file = SPIFFS.open("/config.json", FILE_READ);
+  if (!file) {
+    return String();
+  }
+
+  String str = file.readString();
+  file.close();
+  return str;
+}
+
+void removeSet() {
+  bool isRemove = SPIFFS.remove("/config.json");
+  if (isRemove) {
+    ESP_LOGD("Setting", "Remove Success");
+  } else {
+    ESP_LOGE("Setting", "Remove Fail");
+  }
+}
+void saveSet(String txt) {
+  File file = SPIFFS.open("/config.json", FILE_WRITE);
+  if (!file) {
+    return;
+  }
+  file.print(txt);
+  file.close();
 }
 
 struct sTelemetryData* parsePacket(uint8_t* packetBuffer, size_t length) {

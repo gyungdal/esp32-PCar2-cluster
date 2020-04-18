@@ -13,6 +13,7 @@ const ledc_channel_t SPEED_METER_PWM_CHANNEL = LEDC_CHANNEL_0;
 const ledc_channel_t RPM_METER_PWM_CHANNEL = LEDC_CHANNEL_2;
 const uint8_t PWM_RESOLUTION = 8;
 const uint32_t PWM_DEFAULT_FREQ = 60;
+struct sTelemetryData* buffer;
 
 ledc_channel_config_t SPEED_METER_LEDC_CONFIG = {
     .gpio_num = SPEED_METER_PIN,
@@ -35,8 +36,22 @@ ledc_channel_config_t RPM_METER_LEDC_CONFIG = {
 };
 AsyncUDP udp;
 
+void wifiSetup() {
+  WiFiManager wm;
+  if (!wm.startConfigPortal()) {
+    ESP.restart();
+  }
+  DynamicJsonDocument doc(JSON_DEFAULT_SIZE);
+  doc["ssid"] = wm.getSSID();
+  doc["password"] = wm.getPassword();
+  String output;
+  serializeJson(doc, output);
+  ESP_LOGD("Setting Save", "%s", output.c_str());
+  saveSet(output);
+  ESP.restart();
+}
 void setup() {
-  
+  buffer = nullptr;
   ledc_timer_config_t ledc_timer;
   ledc_timer.speed_mode = LEDC_HIGH_SPEED_MODE;
   ledc_timer.duty_resolution = LEDC_TIMER_8_BIT;
@@ -49,14 +64,34 @@ void setup() {
   ledc_channel_config(&RPM_METER_LEDC_CONFIG);
 
   Serial.begin(115200);
-
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    ESP_LOGE("WiFi", "Connect Failed");
+  WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info){
+      removeSet();
+      ESP.restart();
+  }, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
+  if (!SPIFFS.begin(true)) {
+    ESP_LOGI("FS", "Failed to mount file system");
     ESP.restart();
   }
-  ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_0, kmHToHz<float>(60));
+  String setting = readSet();
+  ESP_LOGI("Setting", "%s", setting.c_str());
+  while (setting.isEmpty()) {
+    removeSet();
+    ESP_LOGI("Setting", "Empty Setting");
+    wifiSetup();
+  }
+  ESP_LOGI("Setting", "Exist Setting");
+  DynamicJsonDocument doc(JSON_DEFAULT_SIZE);
+  deserializeJson(doc, setting);
+  WiFi.begin(doc["ssid"].as<String>().c_str(),
+             doc["password"].as<String>().c_str());
+  delay(3000);
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    delay(1000);
+    removeSet();
+    ESP.restart();
+  }
+
+  ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_0, 20);
   ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_1, RPMToHz<float>(1000));
   
   // ledcSetup(SPEED_METER_PWM_CHANNEL, PWM_DEFAULT_FREQ, PWM_RESOLUTION);
@@ -83,16 +118,22 @@ void setup() {
       ESP_LOGD("UDP", "Len : %d", static_cast<int32_t>(packet.length()));
       auto temp = parsePacket(packet.data(), packet.length());
       if (temp != nullptr) {
-        if(kmHToHz<float>(temp->sSpeed) > 1){
-          ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_0, kmHToHz<float>(temp->sSpeed));
+        if(buffer != nullptr){
+          delete buffer;
         }
-        if(RPMToHz<float>(temp->sRpm) > 1){
-          ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_1, RPMToHz<float>(temp->sRpm));
-        }
-        delete temp;
+        buffer = temp;
       }
     });
   }
 }
 
-void loop() { delay(1000); }
+void loop() { 
+  if(buffer != nullptr){
+    if(kmHToHz<float>(buffer->sSpeed) > 1){
+      ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_0, kmHToHz<float>(buffer->sSpeed));
+    }
+    if(RPMToHz<float>(buffer->sRpm) > 1){
+      ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_1, RPMToHz<float>(buffer->sRpm));
+    }
+  }
+}
