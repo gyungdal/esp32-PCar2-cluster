@@ -47,20 +47,6 @@ ledc_channel_config_t RPM_METER_LEDC_CONFIG = {
 };
 AsyncUDP udp;
 
-void wifiSetup() {
-  WiFiManager wm;
-  if (!wm.startConfigPortal()) {
-    ESP.restart();
-  }
-  DynamicJsonDocument doc(JSON_DEFAULT_SIZE);
-  doc["ssid"] = wm.getSSID();
-  doc["password"] = wm.getPassword();
-  String output;
-  serializeJson(doc, output);
-  ESP_LOGD("Setting Save", "%s", output.c_str());
-  saveSet(output);
-  ESP.restart();
-}
 void setup() {
   buffer = nullptr;
   ledc_timer_config_t ledc_timer;
@@ -75,33 +61,8 @@ void setup() {
   ledc_channel_config(&RPM_METER_LEDC_CONFIG);
 
   Serial.begin(115200);
-  WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info){
-      removeSet();
-      ESP.restart();
-  }, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
-  if (!SPIFFS.begin(true)) {
-    ESP_LOGI("FS", "Failed to mount file system");
-    ESP.restart();
-  }
-  String setting = readSet();
-  ESP_LOGI("Setting", "%s", setting.c_str());
-  while (setting.isEmpty()) {
-    removeSet();
-    ESP_LOGI("Setting", "Empty Setting");
-    wifiSetup();
-  }
-  ESP_LOGI("Setting", "Exist Setting");
-  DynamicJsonDocument doc(JSON_DEFAULT_SIZE);
-  deserializeJson(doc, setting);
-  WiFi.begin(doc["ssid"].as<String>().c_str(),
-             doc["password"].as<String>().c_str());
-  delay(3000);
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    delay(1000);
-    removeSet();
-    ESP.restart();
-  }
-
+  WiFiManager wifiManager;
+  wifiManager.autoConnect();
   ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_0, 20);
   ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_1, RPMToHz<float>(1000));
   

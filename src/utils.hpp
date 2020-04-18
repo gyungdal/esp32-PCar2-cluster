@@ -27,35 +27,6 @@ uint32_t RPMToHz(T rpm) {
   return static_cast<uint32_t>(hz);
 }
 
-
-String readSet() {
-  File file = SPIFFS.open("/config.json", FILE_READ);
-  if (!file) {
-    return String();
-  }
-
-  String str = file.readString();
-  file.close();
-  return str;
-}
-
-void removeSet() {
-  bool isRemove = SPIFFS.remove("/config.json");
-  if (isRemove) {
-    ESP_LOGD("Setting", "Remove Success");
-  } else {
-    ESP_LOGE("Setting", "Remove Fail");
-  }
-}
-void saveSet(String txt) {
-  File file = SPIFFS.open("/config.json", FILE_WRITE);
-  if (!file) {
-    return;
-  }
-  file.print(txt);
-  file.close();
-}
-
 struct sTelemetryData* parsePacket(uint8_t* packetBuffer, size_t length) {
   PacketBase packetHeader;
   
